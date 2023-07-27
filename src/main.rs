@@ -29,11 +29,11 @@ fn main() {
 }
 
 fn cmd() -> Result<(), error::Error> {
-	let entry = keyring::Entry::new_with_target(KEYRING_TARGET, "coolvs.brianwolter.com", "*")?;
+	let mut entry = keyring::Entry::new_with_target(KEYRING_TARGET, "coolvs.brianwolter.com", "*")?;
   let passwd = match entry.get_password() {
     Ok(passwd) => passwd,
     Err(err) => match err {
-      keyring::Error::NoEntry => read_password()?,
+      keyring::Error::NoEntry => set_password(&mut entry)?,
       _ => return Err(err.into()),
     },
   };
@@ -41,11 +41,11 @@ fn cmd() -> Result<(), error::Error> {
   Ok(())
 }
 
-fn read_password() -> Result<String, error::Error> {
-  let pass = rpassword::prompt_password("Password: ")?;
-  if pass != rpassword::prompt_password("Again: ")? {
-    Err(error::Error::PasswordMismatch)
-  }else{
-    Ok(pass)
+fn set_password(entry: &mut keyring::Entry) -> Result<String, error::Error> {
+  let pass = rpassword::prompt_password("New password for store: ")?;
+  if pass != rpassword::prompt_password("   That password again: ")? {
+    return Err(error::Error::PasswordMismatch);
   }
+  entry.set_password(&pass)?;
+  Ok(pass)
 }
