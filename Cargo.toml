@@ -1,0 +1,10 @@
+[package]
+name = "coolvs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version="3.1", features=["derive"] }
+colored = "2.0.0"
+keyring = "2.0.5"
+rpassword = "7.2.0"
