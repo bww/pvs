@@ -8,6 +8,7 @@ use rpassword;
 mod error;
 
 const KEYRING_TARGET: &str = "User";
+const DEFAULT_STORE: &str = "~/.coolvs/store.db";
 
 #[derive(Parser, Debug, Clone)]
 #[clap(author, version, about, long_about = None)]
@@ -16,6 +17,8 @@ pub struct Options {
   pub debug: bool,
   #[clap(long, help="Enable verbose output")]
   pub verbose: bool,
+  #[clap(long, help="The key-value store to operate on")]
+  pub store: Option<String>,
 }
 
 fn main() {
@@ -29,20 +32,31 @@ fn main() {
 }
 
 fn cmd() -> Result<(), error::Error> {
-	let mut entry = keyring::Entry::new_with_target(KEYRING_TARGET, "coolvs.brianwolter.com", "*")?;
+  let opts = Options::parse();
+  let store = match opts.store {
+    Some(store) => store,
+    None => DEFAULT_STORE.to_owned(),
+  };
+  
+	let mut entry = keyring::Entry::new_with_target(KEYRING_TARGET, "coolvs.brianwolter.com", &store)?;
   let passwd = match entry.get_password() {
     Ok(passwd) => passwd,
     Err(err) => match err {
-      keyring::Error::NoEntry => set_password(&mut entry)?,
+      keyring::Error::NoEntry => set_password(&store, &mut entry)?,
       _ => return Err(err.into()),
     },
   };
+  
   println!(">>> {:?}", passwd);
   Ok(())
 }
 
-fn set_password(entry: &mut keyring::Entry) -> Result<String, error::Error> {
+fn set_password(store: &str, entry: &mut keyring::Entry) -> Result<String, error::Error> {
+  println!("[{}]", store);
   let pass = rpassword::prompt_password("New password for store: ")?;
+  if pass.len() == 0 {
+    return Err(error::Error::PasswordEmpty);
+  }
   if pass != rpassword::prompt_password("   That password again: ")? {
     return Err(error::Error::PasswordMismatch);
   }

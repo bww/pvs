@@ -8,6 +8,7 @@ pub enum Error {
   IOError(io::Error),
   KeyringError(keyring::Error),
   PasswordMismatch,
+  PasswordEmpty,
 }
 
 impl From<io::Error> for Error {
@@ -28,6 +29,7 @@ impl fmt::Display for Error {
       Self::IOError(err) => err.fmt(f),
       Self::KeyringError(err) => err.fmt(f),
       Self::PasswordMismatch => write!(f, "Passwords do not match"),
+      Self::PasswordEmpty => write!(f, "Password is empty"),
     }
   }
 }
