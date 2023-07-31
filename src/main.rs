@@ -1,6 +1,7 @@
 use std::process;
 use std::path;
 use std::str;
+use std::io::Read;
 
 use colored::Colorize;
 use clap::{Parser, Subcommand, Args};
@@ -114,7 +115,13 @@ fn store_record(opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), 
 	let hkey = hash_key(&sub.key);
 	let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
 	let enc = cxt.cipher.encrypt(&nonce, "Cool, this is the message".as_ref())?;
-	println!(">>> KEY: {}", hkey);
+
+  let stdin = std::io::stdin();
+  let mut val =  Vec::new();
+  let mut handle = stdin.lock();
+  handle.read_to_end(&mut val);
+	
+	println!(">>> KEY: {} -> {}", hkey, str::from_utf8(&val)?);
 	Ok(())
 }
 
