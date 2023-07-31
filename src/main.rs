@@ -48,13 +48,13 @@ enum Command {
 
 #[derive(Args, Debug)]
 struct StoreOptions {
-  #[clap(long, short='k', help="The key to store the record under")]
+  #[clap(help="The key to store the record under")]
   key: String,
 }
 
 #[derive(Args, Debug)]
 struct FetchOptions {
-  #[clap(long, short='k', help="The key to fetch the record from")]
+  #[clap(help="The key to fetch the record from")]
   key: String,
 }
 
@@ -145,7 +145,6 @@ fn store_record(_opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(),
 		data: enc.into(),
 	})?;
 
-	println!(">>> {}", &env);
 	cxt.data.insert(key, env.as_bytes())?;
 	Ok(())
 }
@@ -162,7 +161,7 @@ fn fetch_record(_opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(),
 	let dec = cxt.cipher.decrypt(nonce.into(), env.data.as_ref())?;
 	let rec: Record = serde_json::from_slice(&dec)?;
 
-	println!("<<< {:?}", &rec);
+	println!("{}", &rec.val);
 	Ok(())
 }
 
