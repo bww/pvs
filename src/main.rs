@@ -1,5 +1,6 @@
 use std::process;
 use std::path;
+use std::str;
 
 use clap::Parser;
 use colored::Colorize;
@@ -17,6 +18,7 @@ mod error;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const KEYRING_TARGET: &str = "User";
 const DEFAULT_STORE: &str = ".coolvs/store.db";
+const KEYLEN: usize = 32;
 
 #[derive(Parser, Debug, Clone)]
 #[clap(author, version, about, long_about = None)]
@@ -27,6 +29,8 @@ pub struct Options {
   pub verbose: bool,
   #[clap(long, help="The key-value store to operate on")]
   pub store: Option<String>,
+  #[clap(help="Command")]
+  pub cmd: Option<String>,
 }
 
 fn main() {
@@ -65,13 +69,29 @@ fn cmd() -> Result<(), error::Error> {
 	};
 
 	let cipher = ChaCha20Poly1305::new_from_slice(&key)?;
-	let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-	
-	let enc = cipher.encrypt(&nonce, "Cool, this is the message".as_ref())?;
-	let dec = cipher.decrypt(&nonce, enc.as_ref())?;
-	println!(">>> DEC DEC DEC {:?}", dec);
+
+	match opts.cmd {
+		None => {},
+		Some(cmd) => match cmd.as_ref() {
+			"enc" => { store_message(cipher)?; },
+			"dec" => { fetch_message(cipher)?; },
+			_		  => return Err(error::Error::InvalidCommand),
+		},
+	};
 
   Ok(())
+}
+
+fn store_message(cipher: ChaCha20Poly1305) -> Result<(), error::Error> {
+	let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+	let enc = cipher.encrypt(&nonce, "Cool, this is the message".as_ref())?;
+	let dec = cipher.decrypt(&nonce, enc.as_ref())?;
+	println!(">>> DEC DEC DEC {:?}", str::from_utf8(&dec)?);
+	Ok(())
+}
+
+fn fetch_message(cipher: ChaCha20Poly1305) -> Result<String, error::Error> {
+	Ok("Hi".to_string())
 }
 
 fn default_store() -> Result<path::PathBuf, error::Error> {
@@ -83,18 +103,18 @@ fn default_store() -> Result<path::PathBuf, error::Error> {
 	Ok(home)
 }
 
-fn derive_key(passwd: &str) -> Result<[u8; 32], error::Error> {
+fn derive_key(passwd: &str) -> Result<[u8; KEYLEN], error::Error> {
 	let hash = argon2::password_hash::PasswordHash::new(&passwd)?;
 	let passwd = match hash.hash {
 		Some(passwd) => passwd,
 		None => return Err(error::Error::InvalidPassword),
 	};
-	let salt = match hash.salt {
-		Some(salt) => salt,
-		None => return Err(error::Error::InvalidPassword),
-	};
-	let mut key = [0u8; 32]; // Can be any desired size
-	argon2::Argon2::default().hash_password_into(passwd.as_bytes(), salt.as_str().as_bytes(), &mut key)?;
+	if passwd.len() < KEYLEN {
+		return Err(error::Error::InvalidPassword) 
+	}
+	let mut key = [0u8; KEYLEN];
+	let pwb = passwd.as_bytes();
+	key[..KEYLEN].clone_from_slice(&pwb[..KEYLEN]);
 	Ok(key)
 }
 

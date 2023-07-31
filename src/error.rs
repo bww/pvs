@@ -1,5 +1,6 @@
 use std::io;
 use std::fmt;
+use std::str;
 
 use keyring;
 use argon2;
@@ -10,17 +11,25 @@ use sled;
 #[derive(Debug)]
 pub enum Error {
   IOError(io::Error),
+  Utf8Error(str::Utf8Error),
   SledError(sled::Error),
   KeyringError(keyring::Error),
   Argon2Error(argon2::Error),
   DeriveKeyError(argon2::password_hash::Error),
   InvalidLength(crypto_common::InvalidLength),
   CipherError(chacha20poly1305::Error),
+  InvalidCommand,
   InvalidPassword,
 	VersionMismatch,
   PasswordMismatch,
   PasswordEmpty,
   NoSuchDirectory,
+}
+
+impl From<str::Utf8Error> for Error {
+  fn from(err: str::Utf8Error) -> Self {
+    Self::Utf8Error(err)
+  }
 }
 
 impl From<io::Error> for Error {
@@ -69,12 +78,14 @@ impl fmt::Display for Error {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Self::IOError(err) => err.fmt(f),
+      Self::Utf8Error(err) => err.fmt(f),
       Self::SledError(err) => err.fmt(f),
       Self::KeyringError(err) => err.fmt(f),
       Self::Argon2Error(err) => err.fmt(f),
       Self::DeriveKeyError(err) => err.fmt(f),
       Self::InvalidLength(err) => err.fmt(f),
       Self::CipherError(err) => err.fmt(f),
+      Self::InvalidCommand => write!(f, "Invalid command"),
       Self::InvalidPassword => write!(f, "Invalid password"),
       Self::VersionMismatch => write!(f, "Version mismatch"),
       Self::PasswordMismatch => write!(f, "Passwords do not match"),
