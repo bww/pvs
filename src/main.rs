@@ -2,8 +2,8 @@ use std::process;
 use std::path;
 use std::str;
 
-use clap::Parser;
 use colored::Colorize;
+use clap::{Parser, Subcommand, Args};
 
 use sled;
 use dirs;
@@ -12,6 +12,7 @@ use keyring;
 use rpassword;
 use chacha20poly1305::{self, ChaCha20Poly1305, KeyInit, AeadCore, aead::{Aead, OsRng}};
 use argon2::{self, PasswordHasher};
+use sha2::Digest;
 
 mod error;
 
@@ -20,17 +21,43 @@ const KEYRING_TARGET: &str = "User";
 const DEFAULT_STORE: &str = ".coolvs/store.db";
 const KEYLEN: usize = 32;
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
-pub struct Options {
+struct Options {
   #[clap(long, help="Enable debugging mode")]
-  pub debug: bool,
+  debug: bool,
   #[clap(long, help="Enable verbose output")]
-  pub verbose: bool,
+  verbose: bool,
   #[clap(long, help="The key-value store to operate on")]
-  pub store: Option<String>,
-  #[clap(help="Command")]
-  pub cmd: Option<String>,
+  store: Option<String>,
+  #[clap(subcommand)]
+  command: Command,
+}
+
+#[derive(Subcommand, Debug)]
+enum Command {
+  #[clap(about="Store a record in the database")]
+  Store(StoreOptions),
+  #[clap(about="Retrieve a record from the database")]
+  Fetch(FetchOptions),
+}
+
+#[derive(Args, Debug)]
+struct StoreOptions {
+  #[clap(long, short='k', help="The key to store the record under")]
+  key: String,
+}
+
+#[derive(Args, Debug)]
+struct FetchOptions {
+  #[clap(long, short='k', help="The key to fetch the record from")]
+  key: String,
+}
+
+struct Context {
+	meta: sled::Tree,
+	data: sled::Tree,
+	cipher: ChaCha20Poly1305,
 }
 
 fn main() {
@@ -45,7 +72,7 @@ fn main() {
 
 fn cmd() -> Result<(), error::Error> {
   let opts = Options::parse();
-  let store: path::PathBuf = match opts.store {
+  let store: path::PathBuf = match &opts.store {
     Some(store) => path::PathBuf::from(&store),
     None => default_store()?,
   };
@@ -69,29 +96,31 @@ fn cmd() -> Result<(), error::Error> {
 	};
 
 	let cipher = ChaCha20Poly1305::new_from_slice(&key)?;
-
-	match opts.cmd {
-		None => {},
-		Some(cmd) => match cmd.as_ref() {
-			"enc" => { store_message(cipher)?; },
-			"dec" => { fetch_message(cipher)?; },
-			_		  => return Err(error::Error::InvalidCommand),
-		},
+	let cxt = Context{
+		meta: meta,
+		data: data,
+		cipher: cipher,
 	};
+
+  match &opts.command {
+  	Command::Store(sub) => store_record(&opts, sub, cxt),
+    Command::Fetch(sub) => fetch_record(&opts, sub, cxt),
+  }?;
 
   Ok(())
 }
 
-fn store_message(cipher: ChaCha20Poly1305) -> Result<(), error::Error> {
+fn store_record(opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), error::Error> {
+	let hkey = hash_key(&sub.key);
 	let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-	let enc = cipher.encrypt(&nonce, "Cool, this is the message".as_ref())?;
-	let dec = cipher.decrypt(&nonce, enc.as_ref())?;
-	println!(">>> DEC DEC DEC {:?}", str::from_utf8(&dec)?);
+	let enc = cxt.cipher.encrypt(&nonce, "Cool, this is the message".as_ref())?;
+	println!(">>> KEY: {}", hkey);
 	Ok(())
 }
 
-fn fetch_message(cipher: ChaCha20Poly1305) -> Result<String, error::Error> {
-	Ok("Hi".to_string())
+fn fetch_record(opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(), error::Error> {
+	//let dec = cipher.decrypt(&nonce, enc.as_ref())?;
+	Ok(())
 }
 
 fn default_store() -> Result<path::PathBuf, error::Error> {
@@ -101,6 +130,10 @@ fn default_store() -> Result<path::PathBuf, error::Error> {
 	};
 	home.push(DEFAULT_STORE);
 	Ok(home)
+}
+
+fn hash_key(key: &str) -> String {
+	format!("{:02x}", sha2::Sha512::digest(key.as_bytes()))
 }
 
 fn derive_key(passwd: &str) -> Result<[u8; KEYLEN], error::Error> {

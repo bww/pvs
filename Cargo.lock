@@ -390,6 +390,7 @@ dependencies = [
  "dirs",
  "keyring",
  "rpassword",
+ "sha2",
  "sled",
 ]
 
