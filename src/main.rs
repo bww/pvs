@@ -6,6 +6,9 @@ use std::io::Read;
 use colored::Colorize;
 use clap::{Parser, Subcommand, Args};
 
+use serde::{Serialize, Deserialize};
+use serde_json;
+
 use sled;
 use dirs;
 
@@ -61,6 +64,18 @@ struct Context {
 	cipher: ChaCha20Poly1305,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct Record {
+	key: String,
+	val: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Envelope {
+	nonce: Vec<u8>,
+	data: Vec<u8>,
+}
+
 fn main() {
   match cmd(){
     Ok(_)    => return,
@@ -79,7 +94,7 @@ fn cmd() -> Result<(), error::Error> {
   };
 
 	let mut entry = keyring::Entry::new_with_target(KEYRING_TARGET, "coolvs.brianwolter.com", &store.display().to_string())?;
-  let (passwd, key) = match entry.get_password() {
+  let (_, key) = match entry.get_password() {
     Ok(passwd) => (passwd.clone(), derive_key(&passwd)?),
     Err(err) => match err {
       keyring::Error::NoEntry => collect_password(&store, &mut entry)?,
@@ -111,22 +126,43 @@ fn cmd() -> Result<(), error::Error> {
   Ok(())
 }
 
-fn store_record(opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), error::Error> {
-	let hkey = hash_key(&sub.key);
+fn store_record(_opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), error::Error> {
+	let key = hash_key(&sub.key);
 	let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-	let enc = cxt.cipher.encrypt(&nonce, "Cool, this is the message".as_ref())?;
 
   let stdin = std::io::stdin();
   let mut val =  Vec::new();
   let mut handle = stdin.lock();
-  handle.read_to_end(&mut val);
+  handle.read_to_end(&mut val)?;
 	
-	println!(">>> KEY: {} -> {}", hkey, str::from_utf8(&val)?);
+	let rec = serde_json::to_string(&Record{
+		key: sub.key.to_owned(),
+		val: str::from_utf8(&val)?.to_string(),
+	})?;
+	let enc = cxt.cipher.encrypt(&nonce, rec.as_bytes())?;
+	let env = serde_json::to_string(&Envelope{
+		nonce: nonce.to_vec(),
+		data: enc.into(),
+	})?;
+
+	println!(">>> {}", &env);
+	cxt.data.insert(key, env.as_bytes())?;
 	Ok(())
 }
 
-fn fetch_record(opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(), error::Error> {
-	//let dec = cipher.decrypt(&nonce, enc.as_ref())?;
+fn fetch_record(_opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(), error::Error> {
+	let key = hash_key(&sub.key);
+	let raw = match cxt.data.get(key)? {
+		Some(raw) => raw,
+		None => return Err(error::Error::NotFound),
+	};
+
+	let env: Envelope = serde_json::from_slice(raw.as_ref())?;
+	let nonce: &[u8] = &env.nonce;
+	let dec = cxt.cipher.decrypt(nonce.into(), env.data.as_ref())?;
+	let rec: Record = serde_json::from_slice(&dec)?;
+
+	println!("<<< {:?}", &rec);
 	Ok(())
 }
 

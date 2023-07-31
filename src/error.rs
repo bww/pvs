@@ -6,12 +6,14 @@ use keyring;
 use argon2;
 use chacha20poly1305;
 use crypto_common;
+use serde_json;
 use sled;
 
 #[derive(Debug)]
 pub enum Error {
   IOError(io::Error),
   Utf8Error(str::Utf8Error),
+  SerdeError(serde_json::Error),
   SledError(sled::Error),
   KeyringError(keyring::Error),
   Argon2Error(argon2::Error),
@@ -23,6 +25,7 @@ pub enum Error {
   PasswordMismatch,
   PasswordEmpty,
   NoSuchDirectory,
+  NotFound,
 }
 
 impl From<str::Utf8Error> for Error {
@@ -34,6 +37,12 @@ impl From<str::Utf8Error> for Error {
 impl From<io::Error> for Error {
   fn from(err: io::Error) -> Self {
     Self::IOError(err)
+  }
+}
+
+impl From<serde_json::Error> for Error {
+  fn from(err: serde_json::Error) -> Self {
+		Self::SerdeError(err)
   }
 }
 
@@ -69,7 +78,7 @@ impl From<crypto_common::InvalidLength> for Error {
 
 impl From<chacha20poly1305::Error> for Error {
   fn from(err: chacha20poly1305::Error) -> Self {
-    Self::CipherError(err)
+		Self::CipherError(err)
   }
 }
 
@@ -78,6 +87,7 @@ impl fmt::Display for Error {
     match self {
       Self::IOError(err) => err.fmt(f),
       Self::Utf8Error(err) => err.fmt(f),
+      Self::SerdeError(err) => err.fmt(f),
       Self::SledError(err) => err.fmt(f),
       Self::KeyringError(err) => err.fmt(f),
       Self::Argon2Error(err) => err.fmt(f),
@@ -89,6 +99,7 @@ impl fmt::Display for Error {
       Self::PasswordMismatch => write!(f, "Passwords do not match"),
       Self::PasswordEmpty => write!(f, "Password is empty"),
       Self::NoSuchDirectory => write!(f, "No such directory"),
+      Self::NotFound => write!(f, "Not found"),
     }
   }
 }
