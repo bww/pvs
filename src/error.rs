@@ -13,6 +13,7 @@ use sled;
 pub enum Error {
   IOError(io::Error),
   Utf8Error(str::Utf8Error),
+  Base64Error(base64::DecodeError),
   SerdeError(serde_json::Error),
   SledError(sled::Error),
   KeyringError(keyring::Error),
@@ -37,6 +38,12 @@ impl From<str::Utf8Error> for Error {
 impl From<io::Error> for Error {
   fn from(err: io::Error) -> Self {
     Self::IOError(err)
+  }
+}
+
+impl From<base64::DecodeError> for Error {
+  fn from(err: base64::DecodeError) -> Self {
+		Self::Base64Error(err)
   }
 }
 
@@ -87,6 +94,7 @@ impl fmt::Display for Error {
     match self {
       Self::IOError(err) => err.fmt(f),
       Self::Utf8Error(err) => err.fmt(f),
+      Self::Base64Error(err) => err.fmt(f),
       Self::SerdeError(err) => err.fmt(f),
       Self::SledError(err) => err.fmt(f),
       Self::KeyringError(err) => err.fmt(f),

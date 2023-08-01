@@ -8,6 +8,7 @@ use clap::{Parser, Subcommand, Args};
 
 use serde::{Serialize, Deserialize};
 use serde_json;
+use base64::{Engine, engine::general_purpose};
 
 use sled;
 use dirs;
@@ -126,25 +127,27 @@ fn cmd() -> Result<(), error::Error> {
   Ok(())
 }
 
-fn store_record(_opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), error::Error> {
+fn store_record(opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), error::Error> {
 	let key = hash_key(&sub.key);
 	let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
 
   let stdin = std::io::stdin();
-  let mut val =  Vec::new();
+  let mut raw =  Vec::new();
   let mut handle = stdin.lock();
-  handle.read_to_end(&mut val)?;
-	
+  handle.read_to_end(&mut raw)?;
+
+	let val = general_purpose::STANDARD.encode(&raw);
 	let rec = serde_json::to_string(&Record{
 		key: sub.key.to_owned(),
-		val: str::from_utf8(&val)?.to_string(),
+		val: val,
 	})?;
+
 	let enc = cxt.cipher.encrypt(&nonce, rec.as_bytes())?;
 	let env = serde_json::to_string(&Envelope{
 		nonce: nonce.to_vec(),
 		data: enc.into(),
 	})?;
-
+	
 	cxt.data.insert(key, env.as_bytes())?;
 	Ok(())
 }
@@ -160,8 +163,9 @@ fn fetch_record(_opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(),
 	let nonce: &[u8] = &env.nonce;
 	let dec = cxt.cipher.decrypt(nonce.into(), env.data.as_ref())?;
 	let rec: Record = serde_json::from_slice(&dec)?;
+	let val = general_purpose::STANDARD.decode(&rec.val)?;
 
-	println!("{}", &rec.val);
+	println!("{}", str::from_utf8(&val)?);
 	Ok(())
 }
 
