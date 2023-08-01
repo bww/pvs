@@ -385,25 +385,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "coolvs"
-version = "0.1.0"
-dependencies = [
- "argon2",
- "base64",
- "chacha20poly1305",
- "clap",
- "colored",
- "crypto-common",
- "dirs",
- "keyring",
- "rpassword",
- "serde",
- "serde_json",
- "sha2",
- "sled",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1151,6 +1132,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18fb31db3f9bddb2ea821cde30a9f70117e3f119938b5ee630b7403aa6e2ead9"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "pvs"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "base64",
+ "chacha20poly1305",
+ "clap",
+ "colored",
+ "crypto-common",
+ "dirs",
+ "keyring",
+ "rpassword",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sled",
 ]
 
 [[package]]

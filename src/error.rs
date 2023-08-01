@@ -101,7 +101,7 @@ impl fmt::Display for Error {
       Self::Argon2Error(err) => err.fmt(f),
       Self::DeriveKeyError(err) => err.fmt(f),
       Self::InvalidLength(err) => err.fmt(f),
-      Self::CipherError(err) => err.fmt(f),
+      Self::CipherError(_) => write!(f, "Encryption failed"),
       Self::InvalidPassword => write!(f, "Invalid password"),
       Self::VersionMismatch => write!(f, "Version mismatch"),
       Self::PasswordMismatch => write!(f, "Passwords do not match"),
