@@ -41,9 +41,9 @@ struct Options {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-  #[clap(about="Store a record in the database")]
+  #[clap(name="set", about="Store a record in the database")]
   Store(StoreOptions),
-  #[clap(about="Retrieve a record from the database")]
+  #[clap(name="get", about="Retrieve a record from the database")]
   Fetch(FetchOptions),
 }
 
@@ -55,6 +55,8 @@ struct StoreOptions {
 
 #[derive(Args, Debug)]
 struct FetchOptions {
+  #[clap(long, help="The key to fetch the record from")]
+  raw: bool,
   #[clap(help="The key to fetch the record from")]
   key: String,
 }
@@ -73,8 +75,8 @@ struct Record {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Envelope {
-	nonce: Vec<u8>,
-	data: Vec<u8>,
+	nonce: String,
+	data: String,
 }
 
 fn main() {
@@ -143,29 +145,43 @@ fn store_record(opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), 
 	})?;
 
 	let enc = cxt.cipher.encrypt(&nonce, rec.as_bytes())?;
+	let enc = general_purpose::STANDARD.encode(&enc);
 	let env = serde_json::to_string(&Envelope{
-		nonce: nonce.to_vec(),
-		data: enc.into(),
+		nonce: general_purpose::STANDARD.encode(&nonce),
+		data: enc,
 	})?;
 	
+	if opts.debug {
+		println!(">>> {}", &env);
+	}
+
 	cxt.data.insert(key, env.as_bytes())?;
 	Ok(())
 }
 
-fn fetch_record(_opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(), error::Error> {
+fn fetch_record(opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(), error::Error> {
 	let key = hash_key(&sub.key);
 	let raw = match cxt.data.get(key)? {
 		Some(raw) => raw,
 		None => return Err(error::Error::NotFound),
 	};
 
+	if opts.debug {
+		println!("<<< {}", str::from_utf8(&raw)?);
+	}
+
 	let env: Envelope = serde_json::from_slice(raw.as_ref())?;
-	let nonce: &[u8] = &env.nonce;
-	let dec = cxt.cipher.decrypt(nonce.into(), env.data.as_ref())?;
+	let nonce: &[u8] = &general_purpose::STANDARD.decode(&env.nonce)?;
+	let dec = general_purpose::STANDARD.decode(&env.data)?; 
+	let dec = cxt.cipher.decrypt(nonce.into(), dec.as_ref())?;
 	let rec: Record = serde_json::from_slice(&dec)?;
 	let val = general_purpose::STANDARD.decode(&rec.val)?;
-
-	println!("{}", str::from_utf8(&val)?);
+	
+	if sub.raw {
+		println!("{}", str::from_utf8(&dec)?);
+	}else{
+		println!("{}", str::from_utf8(&val)?);
+	}
 	Ok(())
 }
 
