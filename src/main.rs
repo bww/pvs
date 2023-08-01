@@ -23,7 +23,7 @@ mod error;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const KEYRING_TARGET: &str = "User";
-const DEFAULT_STORE: &str = ".coolvs/store.db";
+const DEFAULT_STORE: &str = ".pvs/store.db";
 const KEYLEN: usize = 32;
 
 #[derive(Parser, Debug)]
@@ -96,7 +96,7 @@ fn cmd() -> Result<(), error::Error> {
     None => default_store()?,
   };
 
-	let mut entry = keyring::Entry::new_with_target(KEYRING_TARGET, "coolvs.brianwolter.com", &store.display().to_string())?;
+	let mut entry = keyring::Entry::new_with_target(KEYRING_TARGET, "pvs.brianwolter.com", &store.display().to_string())?;
   let (_, key) = match entry.get_password() {
     Ok(passwd) => (passwd.clone(), derive_key(&passwd)?),
     Err(err) => match err {
