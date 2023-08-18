@@ -1,6 +1,7 @@
 use std::io;
 use std::fmt;
 use std::str;
+use std::string;
 
 use keyring;
 use argon2;
@@ -13,6 +14,7 @@ use sled;
 pub enum Error {
   IOError(io::Error),
   Utf8Error(str::Utf8Error),
+  FromUtf8Error(string::FromUtf8Error),
   Base64Error(base64::DecodeError),
   SerdeError(serde_json::Error),
   SledError(sled::Error),
@@ -32,6 +34,12 @@ pub enum Error {
 impl From<str::Utf8Error> for Error {
   fn from(err: str::Utf8Error) -> Self {
     Self::Utf8Error(err)
+  }
+}
+
+impl From<string::FromUtf8Error> for Error {
+  fn from(err: string::FromUtf8Error) -> Self {
+    Self::FromUtf8Error(err)
   }
 }
 
@@ -94,6 +102,7 @@ impl fmt::Display for Error {
     match self {
       Self::IOError(err) => err.fmt(f),
       Self::Utf8Error(err) => err.fmt(f),
+      Self::FromUtf8Error(err) => err.fmt(f),
       Self::Base64Error(err) => err.fmt(f),
       Self::SerdeError(err) => err.fmt(f),
       Self::SledError(err) => err.fmt(f),

@@ -45,6 +45,8 @@ enum Command {
   Store(StoreOptions),
   #[clap(name="get", about="Retrieve a record from the database")]
   Fetch(FetchOptions),
+  #[clap(name="ls", about="List records in the database")]
+  List(ListOptions),
 }
 
 #[derive(Args, Debug)]
@@ -55,28 +57,29 @@ struct StoreOptions {
 
 #[derive(Args, Debug)]
 struct FetchOptions {
-  #[clap(long, help="The key to fetch the record from")]
+  #[clap(long, help="Display the record's internal representation")]
   raw: bool,
   #[clap(help="The key to fetch the record from")]
   key: String,
 }
 
+#[derive(Args, Debug)]
+struct ListOptions {
+  #[clap(long, help="Display the records' internal representation")]
+  raw: bool,
+}
+
 struct Context {
-	meta: sled::Tree,
+	_meta: sled::Tree,
 	data: sled::Tree,
 	cipher: ChaCha20Poly1305,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Record {
-	key: String,
-	val: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 struct Envelope {
 	nonce: String,
-	data: String,
+	key:   String,
+	val:   String,
 }
 
 fn main() {
@@ -116,7 +119,7 @@ fn cmd() -> Result<(), error::Error> {
 
 	let cipher = ChaCha20Poly1305::new_from_slice(&key)?;
 	let cxt = Context{
-		meta: meta,
+		_meta: meta,
 		data: data,
 		cipher: cipher,
 	};
@@ -124,6 +127,7 @@ fn cmd() -> Result<(), error::Error> {
   match &opts.command {
   	Command::Store(sub) => store_record(&opts, sub, cxt),
     Command::Fetch(sub) => fetch_record(&opts, sub, cxt),
+    Command::List(sub)  => list_records(&opts, sub, cxt),
   }?;
 
   Ok(())
@@ -138,19 +142,8 @@ fn store_record(opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), 
   let mut handle = stdin.lock();
   handle.read_to_end(&mut raw)?;
 
-	let val = general_purpose::STANDARD.encode(&raw);
-	let rec = serde_json::to_string(&Record{
-		key: sub.key.to_owned(),
-		val: val,
-	})?;
-
-	let enc = cxt.cipher.encrypt(&nonce, rec.as_bytes())?;
-	let enc = general_purpose::STANDARD.encode(&enc);
-	let env = serde_json::to_string(&Envelope{
-		nonce: general_purpose::STANDARD.encode(&nonce),
-		data: enc,
-	})?;
-	
+	let key = sub.key.to_string();
+	let env = wrap(&cxt, &key, &raw)?;
 	if opts.debug {
 		println!(">>> {}", &env);
 	}
@@ -165,24 +158,37 @@ fn fetch_record(opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(), 
 		Some(raw) => raw,
 		None => return Err(error::Error::NotFound),
 	};
-
 	if opts.debug {
 		println!("<<< {}", str::from_utf8(&raw)?);
 	}
 
-	let env: Envelope = serde_json::from_slice(raw.as_ref())?;
-	let nonce: &[u8] = &general_purpose::STANDARD.decode(&env.nonce)?;
-	let dec = general_purpose::STANDARD.decode(&env.data)?; 
-	let dec = cxt.cipher.decrypt(nonce.into(), dec.as_ref())?;
-	let rec: Record = serde_json::from_slice(&dec)?;
-	let val = general_purpose::STANDARD.decode(&rec.val)?;
-	
-	if sub.raw {
-		println!("{}", str::from_utf8(&dec)?);
+	let (deckey, decval) = unwrap(&cxt, raw.as_ref())?;
+	if opts.verbose {
+		println!("{}: {}", &deckey, str::from_utf8(&decval)?);
 	}else{
-		println!("{}", str::from_utf8(&val)?);
+		println!("{}", str::from_utf8(&decval)?);
 	}
 	Ok(())
+}
+
+fn list_records(opts: &Options, sub: &ListOptions, cxt: Context) -> Result<(), error::Error> {
+	let mut iter = cxt.data.iter();
+	loop {
+		let (_, val) = match iter.next() {
+			Some(res) => res?,
+			None => return Ok(()),
+		};
+		if opts.debug {
+			println!("<<< {}", str::from_utf8(&val)?);
+		}
+
+		let (deckey, decval) = unwrap(&cxt, val.as_ref())?;
+		if opts.verbose {
+			println!("{}: {}", &deckey, str::from_utf8(&decval)?);
+		}else{
+			println!("{}", str::from_utf8(&decval)?);
+		}
+	}
 }
 
 fn default_store() -> Result<path::PathBuf, error::Error> {
@@ -192,6 +198,33 @@ fn default_store() -> Result<path::PathBuf, error::Error> {
 	};
 	home.push(DEFAULT_STORE);
 	Ok(home)
+}
+
+fn wrap(cxt: &Context, key: &str, val: &[u8]) -> Result<String, error::Error> {
+	let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+
+	let key = key.to_string();
+	let enckey = cxt.cipher.encrypt(&nonce, key.as_bytes())?;
+	let encval = cxt.cipher.encrypt(&nonce, val)?;
+
+	Ok(serde_json::to_string(&Envelope{
+		nonce: general_purpose::STANDARD.encode(&nonce),
+		key: general_purpose::STANDARD.encode(enckey),
+		val: general_purpose::STANDARD.encode(encval),
+	})?)
+}
+
+fn unwrap(cxt: &Context, data: &[u8]) -> Result<(String, Vec<u8>), error::Error> {
+	let env: Envelope = serde_json::from_slice(data)?;
+	let nonce: &[u8] = &general_purpose::STANDARD.decode(&env.nonce)?;
+
+	let deckey = general_purpose::STANDARD.decode(&env.key)?; 
+	let plnkey = cxt.cipher.decrypt(nonce.into(), deckey.as_ref())?;
+
+	let decval = general_purpose::STANDARD.decode(&env.val)?; 
+	let plnval = cxt.cipher.decrypt(nonce.into(), decval.as_ref())?;
+	
+	Ok((String::from_utf8(plnkey)?, plnval))
 }
 
 fn hash_key(key: &str) -> String {
