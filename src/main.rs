@@ -143,8 +143,7 @@ fn store_record(opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), 
   let mut handle = stdin.lock();
   handle.read_to_end(&mut raw)?;
 
-	let key = sub.key.to_string();
-	let env = wrap(&cxt, &key, &raw)?;
+	let env = wrap(&cxt, &sub.key, &raw)?;
 	if opts.debug {
 		println!(">>> {}", &env);
 	}
@@ -175,12 +174,12 @@ fn fetch_record(opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(), 
 fn list_records(opts: &Options, sub: &ListOptions, cxt: Context) -> Result<(), error::Error> {
 	let mut iter = cxt.data.iter();
 	loop {
-		let (_, val) = match iter.next() {
+		let (key, val) = match iter.next() {
 			Some(res) => res?,
 			None => return Ok(()),
 		};
 		if opts.debug {
-			println!("<<< {}", str::from_utf8(&val)?);
+			println!("<<< {}: {}", str::from_utf8(&key)?, str::from_utf8(&val)?);
 		}
 
 		let (deckey, decval) = match unwrap(&cxt, val.as_ref()) {
