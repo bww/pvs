@@ -164,7 +164,7 @@ fn fetch_record(opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(), 
 
 	let (deckey, decval) = unwrap(&cxt, raw.as_ref())?;
 	if opts.verbose {
-		println!("{}: {}", &deckey, str::from_utf8(&decval)?);
+		println!("{}\n-\n{}", &deckey, str::from_utf8(&decval)?);
 	}else{
 		println!("{}", str::from_utf8(&decval)?);
 	}
@@ -173,7 +173,12 @@ fn fetch_record(opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(), 
 
 fn list_records(opts: &Options, sub: &ListOptions, cxt: Context) -> Result<(), error::Error> {
 	let mut iter = cxt.data.iter();
+	let mut i = 0;
 	loop {
+		if i > 0 {
+			println!();
+		}
+
 		let (key, val) = match iter.next() {
 			Some(res) => res?,
 			None => return Ok(()),
@@ -189,11 +194,10 @@ fn list_records(opts: &Options, sub: &ListOptions, cxt: Context) -> Result<(), e
 				continue;
 			},
 		};
-		if opts.verbose {
-			println!("{}: {}", &deckey, str::from_utf8(&decval)?);
-		}else{
-			println!("{}", str::from_utf8(&decval)?);
-		}
+
+		println!("{}\n-\n{}\n#", &deckey, str::from_utf8(&decval)?);
+
+		i += 1;
 	}
 }
 
