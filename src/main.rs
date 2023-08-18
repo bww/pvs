@@ -130,6 +130,7 @@ fn cmd() -> Result<(), error::Error> {
     Command::List(sub)  => list_records(&opts, sub, cxt),
   }?;
 
+	db.flush()?;
   Ok(())
 }
 
@@ -182,7 +183,13 @@ fn list_records(opts: &Options, sub: &ListOptions, cxt: Context) -> Result<(), e
 			println!("<<< {}", str::from_utf8(&val)?);
 		}
 
-		let (deckey, decval) = unwrap(&cxt, val.as_ref())?;
+		let (deckey, decval) = match unwrap(&cxt, val.as_ref()) {
+			Ok((deckey, decval)) => (deckey, decval),
+			Err(err) => {
+				println!("* * * invalid record");
+				continue;
+			},
+		};
 		if opts.verbose {
 			println!("{}: {}", &deckey, str::from_utf8(&decval)?);
 		}else{
