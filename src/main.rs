@@ -67,6 +67,7 @@ struct ListOptions {}
 struct Context {
 	_meta: sled::Tree,
 	data: sled::Tree,
+	salt: Vec<u8>,
 	cipher: ChaCha20Poly1305,
 }
 
@@ -112,10 +113,20 @@ fn cmd() -> Result<(), error::Error> {
 		None => { meta.insert("version", VERSION)?; },
 	};
 
+	let salt = match meta.get("salt")? {
+		Some(v) => general_purpose::STANDARD.decode(&v)?,
+		None => {
+			let salt = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+			meta.insert("salt", general_purpose::STANDARD.encode(&salt).as_bytes())?;
+			salt.to_vec()
+		},
+	};
+
 	let cipher = ChaCha20Poly1305::new_from_slice(&key)?;
 	let cxt = Context{
 		_meta: meta,
 		data: data,
+		salt: salt,
 		cipher: cipher,
 	};
 
@@ -130,7 +141,7 @@ fn cmd() -> Result<(), error::Error> {
 }
 
 fn store_record(opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), error::Error> {
-	let key = hash_key(&sub.key);
+	let key = hash_key(&cxt.salt, &sub.key);
 
   let stdin = std::io::stdin();
   let mut raw =  Vec::new();
@@ -147,7 +158,7 @@ fn store_record(opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), 
 }
 
 fn fetch_record(opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(), error::Error> {
-	let key = hash_key(&sub.key);
+	let key = hash_key(&cxt.salt, &sub.key);
 	let raw = match cxt.data.get(key)? {
 		Some(raw) => raw,
 		None => return Err(error::Error::NotFound),
@@ -235,8 +246,11 @@ fn unwrap(cxt: &Context, data: &[u8]) -> Result<(String, Vec<u8>), error::Error>
 	Ok((String::from_utf8(plnkey)?, plnval))
 }
 
-fn hash_key(key: &str) -> String {
-	format!("{:02x}", sha2::Sha512::digest(key.as_bytes()))
+fn hash_key(salt: &Vec<u8>, key: &str) -> String {
+	let mut d = sha2::Sha512::new();
+	d.update(salt);
+	d.update(key.as_bytes());
+	format!("{:02x}", d.finalize())
 }
 
 fn derive_key(passwd: &str) -> Result<[u8; KEYLEN], error::Error> {
