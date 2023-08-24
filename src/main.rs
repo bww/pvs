@@ -41,11 +41,11 @@ struct Options {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-  #[clap(name="set", about="Store a record in the database")]
+  #[clap(name="set", about="Encrypt and store a record in the database")]
   Store(StoreOptions),
-  #[clap(name="get", about="Retrieve a record from the database")]
+  #[clap(name="get", about="Fetch and decrypt a record from the database")]
   Fetch(FetchOptions),
-  #[clap(name="ls", about="List records in the database")]
+  #[clap(name="ls", about="Decrypt and list records in the database")]
   List(ListOptions),
 }
 
