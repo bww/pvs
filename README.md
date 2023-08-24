@@ -9,30 +9,30 @@ $ cd pvs && cargo install
 ```
 
 ## Usage
-PVS has three main operations:
-
-* Store a record in the database,
-* List records in the database,
-* Fetch a record from the database.
-
-```
-$ echo "Store this secret data" | pvs set example.1
-```
-
-```
-$ echo pvs ls
-example.1
-```
-
-```
-$ echo pvs get example.1
-Store this secret data
-```
+PVS has three main operations: store, fetch, and list.
 
 In all cases the record is encrypted using a key that is stored in your platform's standard secret manager. On first run you will be prompted to create the password that this key is derived from. On subsequent runs you will not be prompted for your password because PVS will fetch it from the secret management service.
 
 On MacOS, your password is stored in Keychain. On Linux, it may be KDE Wallet or GNOME Keyring, depending on your setup. On Windows? Who knows, I haven't tested it on Windows. The [Keyring](https://docs.rs/keyring/latest/keyring/) crate is used for interacting with the underlying secret storage service.
 
+### Store a record in the database,
+```
+$ echo "Store this secret data" | pvs set example.1
+```
+
+### List records in the database,
+```
+$ pvs ls
+example.1
+```
+
+### Fetch a record from the database.
+```
+$ pvs get example.1
+Store this secret data
+```
+
+## Getting help
 Use `pvs` or `pvs help` for usage information.
 
 ```
