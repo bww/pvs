@@ -175,7 +175,7 @@ fn list_records(opts: &Options, sub: &ListOptions, cxt: Context) -> Result<(), e
 	let mut iter = cxt.data.iter();
 	let mut i = 0;
 	loop {
-		if i > 0 {
+		if opts.verbose && i > 0 {
 			println!();
 		}
 
@@ -195,7 +195,11 @@ fn list_records(opts: &Options, sub: &ListOptions, cxt: Context) -> Result<(), e
 			},
 		};
 
-		println!("{}\n-\n{}\n#", &deckey, str::from_utf8(&decval)?);
+		if opts.verbose {
+			println!("{}\n-\n{}\n.", &deckey, str::from_utf8(&decval)?);
+		}else{
+			println!("{}", &deckey);
+		}
 
 		i += 1;
 	}
