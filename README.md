@@ -9,6 +9,16 @@ $ cd pvs && cargo install
 ```
 
 ## Usage
+PVS has three main operations:
+
+* Store a record in the database,
+* List records in the database,
+* Fetch a record from the database.
+
+In all cases the record is encrypted (possibly transparently) using a key that is stored in your platform's standard secret manager. On MacOS, this is Keychain. On Linux, it may be KDE Wallet or GNOME Keyring, depending on your setup. On Windows? Who knows, I haven't tested it on Windows.
+
+The [Keyring](https://docs.rs/keyring/latest/keyring/) crate is used for interacting with the underlying secret storage service.
+
 Use `pvs` or `pvs help` for usage information.
 
 ```
