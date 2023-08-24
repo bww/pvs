@@ -1,4 +1,4 @@
-#PVS
+# PVS
 _PVS_ is an ecrypted key/value store with a command line interface. It is intended to be useful for storing a relatively small amount of possibly-sensitive information that can be accessed by scripts.
 
 ## Installing
