@@ -57,17 +57,12 @@ struct StoreOptions {
 
 #[derive(Args, Debug)]
 struct FetchOptions {
-  #[clap(long, help="Display the record's internal representation")]
-  raw: bool,
   #[clap(help="The key to fetch the record from")]
   key: String,
 }
 
 #[derive(Args, Debug)]
-struct ListOptions {
-  #[clap(long, help="Display the records' internal representation")]
-  raw: bool,
-}
+struct ListOptions {}
 
 struct Context {
 	_meta: sled::Tree,
@@ -136,7 +131,6 @@ fn cmd() -> Result<(), error::Error> {
 
 fn store_record(opts: &Options, sub: &StoreOptions, cxt: Context) -> Result<(), error::Error> {
 	let key = hash_key(&sub.key);
-	let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
 
   let stdin = std::io::stdin();
   let mut raw =  Vec::new();
@@ -171,7 +165,7 @@ fn fetch_record(opts: &Options, sub: &FetchOptions, cxt: Context) -> Result<(), 
 	Ok(())
 }
 
-fn list_records(opts: &Options, sub: &ListOptions, cxt: Context) -> Result<(), error::Error> {
+fn list_records(opts: &Options, _: &ListOptions, cxt: Context) -> Result<(), error::Error> {
 	let mut iter = cxt.data.iter();
 	let mut i = 0;
 	loop {
@@ -190,7 +184,7 @@ fn list_records(opts: &Options, sub: &ListOptions, cxt: Context) -> Result<(), e
 		let (deckey, decval) = match unwrap(&cxt, val.as_ref()) {
 			Ok((deckey, decval)) => (deckey, decval),
 			Err(err) => {
-				println!("* * * invalid record");
+				println!("* * * invalid record: {}", err);
 				continue;
 			},
 		};
