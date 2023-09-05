@@ -47,7 +47,7 @@ enum Command {
   Fetch(FetchOptions),
   #[clap(name="ls", about="Decrypt and list records in the database")]
   List(ListOptions),
-  #[clap(name="delete", about="Delete a record from the database")]
+  #[clap(name="rm", about="Delete (remove) a record from the database")]
   Delete(DeleteOptions),
 }
 
