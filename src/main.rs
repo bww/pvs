@@ -47,6 +47,8 @@ enum Command {
   Fetch(FetchOptions),
   #[clap(name="ls", about="Decrypt and list records in the database")]
   List(ListOptions),
+  #[clap(name="delete", about="Delete a record from the database")]
+  Delete(DeleteOptions),
 }
 
 #[derive(Args, Debug)]
@@ -63,6 +65,12 @@ struct FetchOptions {
 
 #[derive(Args, Debug)]
 struct ListOptions {}
+
+#[derive(Args, Debug)]
+struct DeleteOptions {
+  #[clap(help="The key to delete the corresponding record from")]
+  key: String,
+}
 
 struct Context {
 	_meta: sled::Tree,
@@ -131,9 +139,10 @@ fn cmd() -> Result<(), error::Error> {
 	};
 
   match &opts.command {
-  	Command::Store(sub) => store_record(&opts, sub, cxt),
-    Command::Fetch(sub) => fetch_record(&opts, sub, cxt),
-    Command::List(sub)  => list_records(&opts, sub, cxt),
+  	Command::Store(sub)  => store_record(&opts, sub, cxt),
+    Command::Fetch(sub)  => fetch_record(&opts, sub, cxt),
+    Command::List(sub)   => list_records(&opts, sub, cxt),
+    Command::Delete(sub) => delete_record(&opts, sub, cxt),
   }?;
 
 	db.flush()?;
@@ -207,6 +216,14 @@ fn list_records(opts: &Options, _: &ListOptions, cxt: Context) -> Result<(), err
 		}
 
 		i += 1;
+	}
+}
+
+fn delete_record(opts: &Options, sub: &DeleteOptions, cxt: Context) -> Result<(), error::Error> {
+	let key = hash_key(&cxt.salt, &sub.key);
+	match cxt.data.remove(key)? {
+		Some(_) => Ok(()),
+		None => Err(error::Error::NotFound),
 	}
 }
 
