@@ -219,7 +219,7 @@ fn list_records(opts: &Options, _: &ListOptions, cxt: Context) -> Result<(), err
 	}
 }
 
-fn delete_record(opts: &Options, sub: &DeleteOptions, cxt: Context) -> Result<(), error::Error> {
+fn delete_record(_opts: &Options, sub: &DeleteOptions, cxt: Context) -> Result<(), error::Error> {
 	let key = hash_key(&cxt.salt, &sub.key);
 	match cxt.data.remove(key)? {
 		Some(_) => Ok(()),
