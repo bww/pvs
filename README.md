@@ -2,14 +2,18 @@
 _PVS_ is an ecrypted key/value store with a command line interface. It is intended to be useful for storing a relatively small amount of possibly-sensitive information that can be accessed by scripts.
 
 ## Installing
-You can build and install PVS from source as follows:
+On MacOS, you can install PVS via Homebrew:
+```
+$ brew install bww/stable/pvs
+```
 
+Or, if you're so inclined, you can build and install PVS from source as follows:
 ```
 $ cd pvs && cargo install
 ```
 
 ## Usage
-PVS has three main operations: store, fetch, and list.
+PVS has four main operations: store, fetch, list, and delete.
 
 In all cases the record is encrypted using a key that is stored in your platform's standard secret manager. On first run you will be prompted to create the password that this key is derived from. On subsequent runs you will not be prompted for your password because PVS will fetch it from the secret management service.
 
@@ -32,11 +36,16 @@ $ pvs get example.1
 Store this secret data
 ```
 
+### Remove a record from the database
+```
+$ pvs rm example.1
+```
+
 ## Getting help
 Use `pvs` or `pvs help` for usage information.
 
 ```
-$ pvs
+$ pvs 0.1.0
 
 USAGE:
     pvs [OPTIONS] <SUBCOMMAND>
@@ -52,6 +61,7 @@ SUBCOMMANDS:
     get     Fetch and decrypt a record from the database
     help    Print this message or the help of the given subcommand(s)
     ls      Decrypt and list records in the database
+    rm      Delete (remove) a record from the database
     set     Encrypt and store a record in the database
 
 ```
